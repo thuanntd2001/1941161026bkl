@@ -1,0 +1,92 @@
+#!/bin/sh
+
+#===============================================================================
+# img2video
+# image to video
+#===============================================================================
+
+# dependencies:
+# ffmpeg
+
+#===============================================================================
+# script usage
+#===============================================================================
+
+usage()
+{
+echo "\
+# image to video
+
+$(basename "$0") -i input.(png|jpg|jpeg) -d (000) -o output.mp4
+-i input.(mp4|mkv|mov|m4v)
+-d (000)       : duration
+-o output.mp4  : optional argument # if option not provided defaults to input-name-video-date-time"
+exit 2
+}
+
+
+#===============================================================================
+# error messages
+#===============================================================================
+
+INVALID_OPT_ERR='Invalid option:'
+REQ_ARG_ERR='requires an argument'
+WRONG_ARGS_ERR='wrong number of arguments passed to script'
+
+
+#===============================================================================
+# check the number of arguments passed to the script
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts check the options passed to the script
+#===============================================================================
+
+while getopts ':i:d:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     d) dur="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variables
+#===============================================================================
+
+# input, input name and extension
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# output file recording destination
+outfile_default="${infile_name}-video-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+
+#===============================================================================
+# functions
+#===============================================================================
+
+# image to video function
+imgtovid () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -framerate 1/"${dur}" \
+  -i "${infile}" \
+  -c:v libx264 -crf 18 -profile:v high \
+  -r 30 -pix_fmt yuv420p \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# run the imgtovid function
+imgtovid "${infile}"

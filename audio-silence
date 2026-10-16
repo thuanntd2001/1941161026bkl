@@ -1,0 +1,134 @@
+#!/bin/sh
+
+#===============================================================================
+# audio-silence
+# add silent audio to a video clip
+#===============================================================================
+
+# dependencies:
+# ffmpeg ffprobe
+
+#===============================================================================
+# script usage
+#===============================================================================
+
+usage ()
+{
+# if argument passed to function echo it
+[ -z "${1}" ] || echo "! ${1}"
+# display help
+echo "\
+# audio-silence add silent audio to a video clip
+
+$(basename "$0") -i input.(mp4|mkv|mov|m4v) -c (mono|stereo) -r (44100|48000) -o output.mp4
+-i input.(mp4|mkv|mov|m4v)
+-c (mono|stereo) : optional argument # if option not provided defaults to mono
+-r (44100|48000) : optional argument # if option not provided defaults to 44100
+-o output.mp4    : optional argument # if option not provided defaults to input-name-silence-date-time"
+exit 2
+}
+
+
+#===============================================================================
+# error messages
+#===============================================================================
+
+INVALID_OPT_ERR='Invalid option:'
+REQ_ARG_ERR='requires an argument'
+WRONG_ARGS_ERR='wrong number of arguments passed to script'
+
+
+#===============================================================================
+# check the number of arguments passed to the script
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts check the options passed to the script
+#===============================================================================
+
+while getopts ':i:c:r:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     c) channel="${OPTARG}"
+        { [ "${channel}" = 'mono' ] || [ "${channel}" = 'stereo' ]; } || usage;;
+     r) rate="${OPTARG}"
+        { [ "${rate}" = '44100' ] || [ "${rate}" = '48000' ]; } || usage;;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variables
+#===============================================================================
+
+# input
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# defaults for variables if not defined
+channel_default='mono'
+rate_default='44100'
+outfile_default="${infile_name}-silence-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+# check if the libfdk_aac codec is installed, if not fall back to the aac codec
+aac_codec="$(ffmpeg -hide_banner -stats -v panic -h encoder=libfdk_aac)"
+aac_error="Codec 'libfdk_aac' is not recognized by FFmpeg."
+aac_check="$(echo "${aac_codec}" | grep "${aac_error}")"
+
+# check ffmpeg aac codecs
+if [ -z "${aac_check}" ]; then
+   aac='libfdk_aac' # libfdk_aac codec is installed
+else
+   aac='aac' # libfdk_aac codec isnt installed, fall back to aac codec
+fi
+
+
+#===============================================================================
+# functions
+#===============================================================================
+
+# video function
+video_silence () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -f lavfi \
+  -i anullsrc=channel_layout="${channel:=${channel_default}}":sample_rate="${rate:=${rate_default}}" \
+  -i "${infile}" \
+  -shortest -c:v copy -c:a "${aac}" \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# video and audio function
+video_audio_silence () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -f lavfi \
+  -i anullsrc=channel_layout="${channel:=${channel_default}}":sample_rate="${rate:=${rate_default}}" \
+  -i "${infile}" \
+  -shortest -c:v copy -c:a "${aac}" \
+  -map 0:0 -map 1:0 \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# check if the video has an audio track
+audio_check="$(ffprobe -i "${infile}" -show_streams -select_streams a -loglevel error)"
+
+# check if audio_check is null which means the video doesnt have an audio track
+if [ -z "${audio_check}" ]; then
+   video_silence "${infile}" # null value
+else
+   video_audio_silence "${infile}" # non null value
+fi

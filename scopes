@@ -1,0 +1,181 @@
+#!/bin/sh
+
+#===============================================================================
+# scopes
+# ffplay video scopes
+#===============================================================================
+
+# dependencies:
+# ffplay
+
+#===============================================================================
+# script usage
+#===============================================================================
+
+usage()
+{
+[ -z "${1}" ] || echo "! ${1}"
+echo "\
+# ffplay video scopes
+
+$(basename "$0") -i input = histogram
+$(basename "$0") -o input = rgb overlay
+$(basename "$0") -p input = rgb parade
+$(basename "$0") -s input = rgb overlay and parade
+$(basename "$0") -w input = waveform
+$(basename "$0") -v input = vector scope
+$(basename "$0") -h = help
+"
+exit 2
+}
+
+
+#===============================================================================
+# error messages
+#===============================================================================
+
+INVALID_OPT_ERR='Invalid option:'
+REQ_ARG_ERR='requires an argument'
+WRONG_ARGS_ERR='wrong number of arguments passed to script'
+
+
+#===============================================================================
+# check the number of arguments passed to the script
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# functions
+#===============================================================================
+
+# histogram overlay
+histogram_overlay () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "split=2[a][b],
+    [b]histogram,
+    format=yuva444p[hh],
+    [a][hh]overlay=x=W-w:y=H-h"
+}
+
+
+# rgb overlay
+rgb_overlay () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=gbrp,
+    split=2[a][b],
+    [b]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7:
+    display=overlay[bb],
+    [a][bb]vstack"
+}
+
+
+# rgb parade
+rgb_parade () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=gbrp,
+    split=2[a][b],
+    [b]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7[bb],
+    [a][bb]vstack"
+}
+
+
+# rgb overlay and parade stacked
+rgb_stacked () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=gbrp,
+    split=3[a][b][c],
+    [b]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7:
+    display=overlay[bb],
+    [c]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7[cc],
+    [bb][cc]vstack[d],
+    [a][d]vstack"
+}
+
+
+# waveform lowpass
+waveform_lowpass () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "split=2[a][b],
+    [b]waveform=f=lowpass:
+    s=ire:
+    g=green:
+    e=instant[bb],
+    [a][bb]vstack"
+}
+
+
+# vectorscope
+vectorscope () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=yuva444p9,
+    split=2[m][v],
+    [v]vectorscope=b=0.7:
+    m=color4:
+    e=peak+instant:
+    f=name:
+    g=color[v],
+    [m][v]overlay=x=W-w:y=H-h"
+}
+
+
+#===============================================================================
+# getopts check the options passed to the script
+#===============================================================================
+
+while getopts ':i:o:p:s:w:v:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}"
+	histogram_overlay;;
+     o) infile="${OPTARG}"
+	rgb_overlay;;
+     p) infile="${OPTARG}"
+	rgb_parade;;
+     s) infile="${OPTARG}"
+	rgb_stacked;;
+     w) infile="${OPTARG}"
+	waveform_lowpass;;
+     v) infile="${OPTARG}"
+	vectorscope;;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))

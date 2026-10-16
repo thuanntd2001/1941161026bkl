@@ -1,0 +1,131 @@
+#!/bin/sh
+
+#===============================================================================
+# scene-images
+# ffmpeg scene thumbnails
+#===============================================================================
+
+# dependencies:
+# ffmpeg
+
+#===============================================================================
+# script usage
+#===============================================================================
+
+usage () {
+# if argument passed to function echo it
+[ -z "${1}" ] || echo "! ${1}"
+# display help
+echo "\
+$(basename "$0") -i input -c cutfile -t (png|jpg) -x width -y height
+
+-i input.(mp4|mov|mkv|m4v)
+-c cutfile
+-t (png|jpg)       : optional argument # if option not provided defaults to png
+-x width           : optional argument # 
+-y height          : optional argument #"
+exit 2
+}
+
+
+#===============================================================================
+# error messages
+#===============================================================================
+
+INVALID_OPT_ERR='Invalid option:'
+REQ_ARG_ERR='requires an argument'
+WRONG_ARGS_ERR='wrong number of arguments passed to script'
+
+
+#===============================================================================
+# check the number of arguments passed to the script
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts check the options passed to the script
+#===============================================================================
+
+while getopts ':i:c:t:x:y:h' opt
+do
+  case ${opt} in
+     i) input="${OPTARG}";;
+     c) cutfile="${OPTARG}";;
+     t) image="${OPTARG}";;
+     x) width="${OPTARG}";;
+     y) height="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variables
+#===============================================================================
+
+# get the input file name
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+# image default
+image_default="png"
+
+
+#===============================================================================
+# ffmpeg extract image
+#===============================================================================
+
+
+# image function
+extract () {
+  output="${input_name}-[${seconds}].${image:=${image_default}}"
+  ffmpeg \
+  -nostdin \
+  -hide_banner \
+  -stats -v panic \
+  -ss "${seconds}" \
+  -i "${input}" \
+  -q:v 2 -f image2 \
+  -vframes 1 \
+  "${output}"
+}
+
+
+# image and scale function 
+extract_scale () {
+  output="${input_name}-[${seconds}].${image:=${image_default}}"
+  ffmpeg \
+  -nostdin \
+  -hide_banner \
+  -stats -v panic \
+  -ss "${seconds}" \
+  -i "${input}" \
+  -q:v 2 -f image2 \
+  -vframes 1 \
+  -vf scale="${width:=-1}:${height:=-1}" \
+  "${output}"
+}
+
+
+#===============================================================================
+# read file and run ffmpeg
+#===============================================================================
+
+
+if [ -n "${width}" ] || [ -n "${height}" ]; then
+  count=1
+  while IFS= read -r seconds; do
+     extract_scale
+  done < "${cutfile}"
+else
+  count=1
+  while IFS= read -r seconds; do
+     extract
+  done < "${cutfile}"
+fi
+

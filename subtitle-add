@@ -1,0 +1,99 @@
+#!/bin/sh
+
+#===============================================================================
+# subtitle-add
+# add subtitles to a video
+#===============================================================================
+
+# dependencies:
+# ffmpeg
+
+#===============================================================================
+# script usage
+#===============================================================================
+
+usage()
+{
+# if argument passed to function echo it
+[ -z "${1}" ] || echo "! ${1}"
+# display help
+echo "\
+# add subtitles to a video
+
+$(basename "$0") -i input.(mp4|mkv|mov|m4v) -s subtitle.(srt|vtt) -o output.mp4
+-i input.(mp4|mkv|mov|m4v)
+-s subtitle.(srt|vtt)
+-o output.mp4 : optional argument # if option not provided defaults to input-name-subs-date-time"
+exit 2
+}
+
+
+#===============================================================================
+# error messages
+#===============================================================================
+
+INVALID_OPT_ERR='Invalid option:'
+REQ_ARG_ERR='requires an argument'
+WRONG_ARGS_ERR='wrong number of arguments passed to script'
+
+
+#===============================================================================
+# check the number of arguments passed to the script
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts check the options passed to the script
+#===============================================================================
+
+while getopts ':i:s:o:h' opt
+do
+  case ${opt} in
+     i) video="${OPTARG}";;
+     s) subs="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variables
+#===============================================================================
+
+# input, input name and extension
+video_nopath="${video##*/}"
+video_name="${video_nopath%.*}"
+
+# defaults for variables if not defined
+outfile_default="${video_name}-subs-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+
+#===============================================================================
+# functions
+#===============================================================================
+
+# audio is aac, copy audio stream
+addsubs () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${video}" \
+    -f srt \
+    -i "${subs}" \
+    -c:a copy \
+    -c:v copy \
+    -c:s mov_text -metadata:s:s:0 \
+    language=eng \
+    -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+# run the addsubs function
+addsubs "$video" "$subs"
