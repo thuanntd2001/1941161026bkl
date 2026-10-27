@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Default values
+SOURCE_DIR=""
+DEST_DIR=""
+VERBOSE=false
+DRY_RUN=false
+
+# Print usage instructions
+usage() {
+    echo "\
+    $(basename "$0") -i input -e 00:00:00 -t (0.1 - 0.9)
+
+    -i input.(mp4|mov|mkv|m4v)
+    -t (0.1 - 0.9) # threshold"
+    exit 1
+}
+
+# Parse arguments
+while getopts ":i:t:h" opt; do
+    case $opt in
+        i) input="${OPTARG}";;
+        t) threshold="${OPTARG}";;
+        h) usage;;
+        \?) echo "Invalid option: -$OPTARG" >&2; usage ;;
+        :) echo "Option -$OPTARG requires an argument." >&2; usage ;;
+    esac
+done
+
+#===============================================================================
+# variables
+#===============================================================================
+
+# get the input file name
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+# output file folder name
+output_folder="./${input_name}-cutfiles"
+
+# threshold default
+threshold_default='0.3'
+
+# start default
+start_default='0.0'
+
+mkdir -p ${output_folder}
+
+scene-detect -i ${input} -t ${threshold:=${threshold_default}}
+
+output_detection="${input_name}-detection.txt"
+
+scene-time-copy -i ${output_detection}
+
+output_cutlist="${input_name}-detection-cutlist.txt"
+
+scene-cut-copy -i ${input} -c ${output_cutlist}
+
+rm ${output_detection}
+rm ${output_cutlist}
+
+
+

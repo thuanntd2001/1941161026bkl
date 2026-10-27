@@ -6,7 +6,7 @@
 #===============================================================================
 
 # dependencies:
-# ffmpeg 
+# ffmpeg
 
 #===============================================================================
 # script usage
@@ -79,11 +79,11 @@ trim_video () {
               end = $2
               if (start ~ /:/) {
                 split(start, t, ":")
-                sseconds = (t[1] * 3600) + (t[2] * 60) + t[3] 
+                sseconds = (t[1] * 3600) + (t[2] * 60) + t[3]
               }
               if (end ~ /:/) {
                 split(end, t, ":")
-                eseconds = (t[1] * 3600) + (t[2] * 60) + t[3] 
+                eseconds = (t[1] * 3600) + (t[2] * 60) + t[3]
               }
               duration = eseconds + sseconds
               printf("%s\n"), duration
@@ -91,20 +91,9 @@ trim_video () {
     | awk -F. 'NF==1 { printf("%02d:%02d:%02d\n"), ($1 / 3600), ($1 % 3600 / 60), ($1 % 60) }\
     NF==2 { printf("%02d:%02d:%02d.%s\n"), ($1 / 3600), ($1 % 3600 / 60), ($1 % 60), ($2) }'
     )
-    output="${input_name}-[${start}-${endtime}].mp4" 
-    # ffmpeg \
-    # -nostdin \
-    # -hide_banner \
-    # -stats -v panic \
-    # -ss "${start}" \
-    # -i "${input}" \
-    # -t "${duration}" \
-    # -c:a aac \
-    # -c:v libx264 -profile:v high \
-    # -pix_fmt yuv420p -movflags +faststart \
-    # -f mp4 \
-    # "${output}"
+    output_folder="./${input_name}-cutfiles"
 
+    output="${output_folder}/${input_name}-[${start}-${endtime}].mp4"
 
     ffmpeg \
     -nostdin \
@@ -113,10 +102,11 @@ trim_video () {
     -ss "${start}" \
     -i "${input}" \
     -t "${duration}" \
-    -c copy -fflags +genpts -movflags +faststart -y \
+    -c copy \
+    -f mp4 \
     "${output}"
 }
-#-c copy -fflags +genpts -movflags +faststart -y
+
 
 #===============================================================================
 # read file and set IFS=, read = input before , duration = input after ,

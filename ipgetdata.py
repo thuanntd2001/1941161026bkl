@@ -305,7 +305,7 @@ def download_mp4s(args):
         ) as sftp:
 
             filenames = sorted(
-                sftp.listdir(args.remote_dir)
+                sftp.listdir(args.remote_dir), reverse=True
             )
 
             for filename in filenames:
